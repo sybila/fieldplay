@@ -52,7 +52,7 @@ export default function drawParticlesProgram(ctx) {
   function updateParticlesPositions() {
     if (!currentVectorField) return;
 
-    ctx.frame += 1
+    ctx.frame += 1;
     ctx.frameSeed = Math.random();
 
     // TODO: Remove this.
@@ -79,6 +79,8 @@ export default function drawParticlesProgram(ctx) {
     var particleIndices = new Float32Array(numParticles);
     var particleStateX = new Uint8Array(numParticles * 4);
     var particleStateY = new Uint8Array(numParticles * 4);
+    
+    console.log("Num. of particles: "+numParticles);
 
     var minX = ctx.bbox.minX; var minY = ctx.bbox.minY;
     var width = ctx.bbox.maxX - minX;

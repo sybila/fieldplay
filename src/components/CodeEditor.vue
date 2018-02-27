@@ -4,6 +4,7 @@
     viewportMargin: Infinity,
     theme: 'glsl',
     mode: 'glsl',
+    readOnly: true,
   }"></codemirror>
   <div class='error-container'>
     <pre v-if='model.error' class='error hl'>{{model.error}}</pre>

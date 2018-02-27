@@ -11,6 +11,47 @@
     <form class='block' @submit.prevent='onSubmit'>
       <div class='title'>Settings<a class='reset-all' href='?'>reset all</a> </div>
       <div class='row'>
+        <div class='col'>Parameters:</div>
+        <div class='col full'></div>
+        <help-icon @show='parametersHelpVisible = !parametersHelpVisible' :class='{open: parametersHelpVisible}'></help-icon>
+      </div>
+      <div class='row help' v-if='parametersHelpVisible'>
+        <div>
+          <p>Value of a particular parameter can be set by incremental/decremental steps by up/down arrows on the right side of the input field or by typing in a particular number (integer or float). This value will simply set the value of a particular parameter in the equations which affect behaviour of vector field.</p>
+          <!--p>Value can be set to a particular number (integer or float) or to value of <b>x</b> or <b>y</b> standing for horizontal and vertical axis respectively.</p-->
+        </div>
+      </div>
+      <div class='row' v-for="(param, idx) in customParams">
+        <div class='col' id='param_name'>{{param.name}}</div>
+        <div class='col full'>
+          <input type='number' v-bind:min='param.min' v-bind:max='param.max' v-bind:value='param.value' :step='0.1' @input="paramChanged(param, $event)" @keyup.enter='onSubmit' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+      </div>
+      <hr>
+      <div class='row'>
+        <div class='col'>Variables/Dimensions:</div>
+        <div class='col full'></div>
+        <help-icon @show='variablesHelpVisible = !variablesHelpVisible' :class='{open: variablesHelpVisible}'></help-icon>
+      </div>
+      <div class='row help' v-if='variablesHelpVisible'>
+        <div>
+          <p>Value of a particular variable can be set to a particular number (integer or float) or to value of <b>x</b> or <b>y</b> standing for horizontal and vertical axis of the plot respectively. Each variable represents a dimension in N-dimensional space (where <b>N</b> is the number of variables/dimensions). A number represents a fixed value of a particular variable in dimension not shown.</p>
+        </div>
+      </div>
+      <div class='row' v-for="(variable, idx) in customVars">
+        <div class='col'>{{variable.name}}</div>
+        <div class='col full'>
+          <input type='text' v-bind:id='"var_"+idx' v-bind:value='variable.value' @input="varChanged(variable, customVars, $event.target.value)" @keyup.enter='onSubmit' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+      </div>
+      <hr>
+      <!--div class='row'>
+        <div class='col' id='param_name'></div>
+        <div class='col full'>
+          <input type='number' :step='fadeoutDelta'  v-model='paramValue' @keyup.enter='onSubmit' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+      </div-->
+      <div class='row'>
         <div class='col'>Particle color</div>
         <div class='col full'> 
           <select v-model='selectedColorMode' @change='changeColor'>
@@ -166,12 +207,16 @@ export default {
       // TODO: Need something better for help management?
       selectedColorHelp: false,
       syntaxHelpVisible: false,
+      parametersHelpVisible: false,
+      variablesHelpVisible: false,
       particleCountHelpVisible: false,
       fadeoutDeltaHelp: false,
       resetProbabilityHelp: false,
       integrationStepHelp: false,
       minX: 0, minY: 0,
-      maxX: 0, maxY: 0
+      maxX: 0, maxY: 0,
+      customParams: [],
+      customVars: []
     };
   },
   watch: {
@@ -183,6 +228,9 @@ export default {
     },
     timeStep(newValue, oldValue) {
       this.scene.setIntegrationTimeStep(newValue);
+    },
+    paramValue(newValue, oldValue) {
+      this.scene.setParamValue(newValue);
     },
     fadeOutSpeed(newValue, oldValue) {
       this.scene.setFadeOutSpeed(newValue);
@@ -261,6 +309,32 @@ export default {
       this.timeStep = scene.getIntegrationTimeStep();
       this.selectedColorMode = scene.getColorMode();
       this.updateBBox();
+      window.sett = this;
+      var that = this;
+      window.varsReady = function() {
+        for (var i = 0; i < window.variables.length; ++i)
+        {
+          var val = (i == 0 ? 'x' : (i == 1 ? 'y' : '0.0'));
+          that.customVars.push({
+            name: window.variables[i],
+            value: val,
+            eq: window.equations[i]
+          });
+        }
+      };
+      window.paramsReady = function() {
+        for (var i = 0; i < window.params.length; ++i)
+        {
+          var row = window.params[i].split(',');
+          that.customParams.push({
+            name: row[0],
+            min: row[1],
+            max: row[2],
+            value: row[1]
+          });
+        }
+      };
+      //console.log(window.params);
     },
 
     updateBBox() {
@@ -279,6 +353,42 @@ export default {
         this.prevBboxReset = 0
       }, 50);
     },
+    
+    paramChanged(param, evt) {
+      var newVal = evt.target.value;
+      window.scene.vectorFieldEditorState.code = window.scene.vectorFieldEditorState.code.replace(/(\w+) = (.*);/g, function(whole, name, value) {
+        if (name == param.name)
+          return name + ' = ' + (newVal.indexOf('.') == -1 ? newVal + '.' : newVal) + ';';
+        else
+          return whole;
+      });
+      param.value = newVal;
+    },
+    
+    varChanged(variable, vars, evt) {
+      var that = this;
+      var newVal = evt;
+      var idxToChange = null;
+      window.scene.vectorFieldEditorState.code = window.scene.vectorFieldEditorState.code.replace(/float (\w+) = (.*);/g, function(whole, name, value) {
+        if (name == variable.name) {
+          return "float " + name + ' = ' + (newVal == 'x' ? 'p[0]' : (newVal == 'y' ? 'p[1]' : (newVal.indexOf('.') == -1 ? newVal + '.' : newVal))) + ';';
+        } else if ((value == "p[0]" && newVal == "x") || (value == "p[1]" && newVal == "y")) {
+          idxToChange = vars.findIndex(x => x.name == name);
+          return "float " + name + " = 0.0;";
+        } else {
+          return whole;
+        }
+      });
+      window.scene.vectorFieldEditorState.code = window.scene.vectorFieldEditorState.code.replace(/v\[0\] = (.*);/g, function(whole) {
+        return (newVal == "x" ? "v[0] = "+variable.eq.split("=")[1]+";" : (variable.value == "x" ? "v[0] = 0.0;" : whole));
+      });
+      window.scene.vectorFieldEditorState.code = window.scene.vectorFieldEditorState.code.replace(/v\[1\] = (.*);/g, function(whole) {
+        return (newVal == "y" ? "v[1] = "+variable.eq.split("=")[1]+";" : (variable.value == "y" ? "v[1] = 0.0;" : whole));
+      });
+      if (idxToChange !== null)
+        that.customVars[idxToChange].value = '0.0';
+      variable.value = newVal;
+    }
   }
 }
 

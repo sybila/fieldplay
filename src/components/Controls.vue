@@ -26,6 +26,7 @@ import wrapVectorField from '../lib/wrapVectorField';
 
 export default {
   mounted() {
+    window.scene.setPaused(true);   // This sets simulation stopped from start
     document.body.addEventListener('keydown', this.onKeyDown, this);
   },
   beforeDestroy() {
@@ -45,9 +46,11 @@ export default {
         e.preventDefault();
       }
     },
+    // pridane Lachtanom
     generateNewFunction() {
       window.scene.vectorFieldEditorState.setCode(wrapVectorField(generateFunction()));
     },
+    //
     togglePaused() {
       this.paused = !this.paused;
       window.scene.setPaused(this.paused);
